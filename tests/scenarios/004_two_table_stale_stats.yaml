@@ -1,0 +1,56 @@
+id: "004"
+title: "2-테이블 조인 — 통계 노후화 (LAST_ANALYZED 90일 초과)"
+intent: "유효성 검증으로 통계 노후화를 인지하고 통계 재수집을 1순위 권고로 제시하는지 검증"
+db_version: "19c"
+
+input_sql: |
+  SELECT p.product_id, SUM(oi.quantity) AS total_qty
+  FROM   products p, order_items oi
+  WHERE  p.product_id = oi.product_id
+    AND  p.category   = :B1
+  GROUP BY p.product_id;
+
+user_turns:
+  - turn: 1
+    message: |
+      위 SQL 튜닝해 주세요.
+    expected:
+      must_request:
+        - "DB 버전"
+        - "PRODUCTS"
+        - "ORDER_ITEMS"
+        - "테이블 통계"
+        - "인덱스"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+  - turn: 2
+    message: |
+      [수집 결과]
+      - DB 버전: 19c
+      - PRODUCTS NUM_ROWS=50,000, LAST_ANALYZED=192일 전
+      - ORDER_ITEMS NUM_ROWS=200만, LAST_ANALYZED=200일 전
+      - 실측 행 수: PRODUCTS 약 18만, ORDER_ITEMS 약 1억 2천만
+      - 인덱스: ORDER_ITEMS IDX_OI_PRODUCT(PRODUCT_ID)
+      - 실행 계획: NESTED LOOPS, A-Rows 1억 2천만, E-Rows 200만
+      - LAST_ANALYZED 가 6개월 이상 경과
+    expected:
+      must_include_section:
+        - "[진단 요약]"
+        - "[가설]"
+        - "[튜닝 대안]"
+        - "[튜닝된 SQL — 권장안 기준]"
+        - "[DDL (필요 시)]"
+        - "[검증 방법]"
+      must_include_phrase:
+        - "통계"
+        - "GATHER_TABLE_STATS"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+pass_criteria:
+  - all_must_request_satisfied
+  - all_must_include_section_present
+  - no_forbidden_phrases

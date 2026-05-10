@@ -1,0 +1,60 @@
+id: "005"
+title: "2-테이블 조인 — ORDER_DATE 인덱스 부재 → CREATE INDEX 권고"
+intent: "FULL TABLE SCAN 의 원인을 인덱스 부재로 진단하고 결합 인덱스 DDL 을 [DDL (필요 시)] 섹션에 포함하는지 검증"
+db_version: "19c"
+
+input_sql: |
+  SELECT o.order_id, c.customer_name, o.total_amount
+  FROM   orders o, customers c
+  WHERE  o.customer_id = c.customer_id
+    AND  o.order_date >= :B1
+    AND  o.status      = :B2
+  ORDER BY o.order_date DESC;
+
+user_turns:
+  - turn: 1
+    message: |
+      위 SQL 튜닝해 주세요. 최근 60초로 느려졌습니다.
+    expected:
+      must_request:
+        - "DB 버전"
+        - "ORDERS"
+        - "CUSTOMERS"
+        - "인덱스"
+        - "ORDER_DATE"
+        - "STATUS"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+  - turn: 2
+    message: |
+      [수집 결과]
+      - DB 버전: 19c
+      - ORDERS NUM_ROWS=1억, LAST_ANALYZED=7일 전
+      - CUSTOMERS NUM_ROWS=500만, LAST_ANALYZED=7일 전
+      - 인덱스: ORDERS PK_ORDERS(ORDER_ID), IDX_ORDERS_CUSTOMER(CUSTOMER_ID). ORDER_DATE/STATUS 결합 인덱스 없음.
+      - ORDER_DATE: NDV=730, HISTOGRAM=NONE
+      - STATUS:     NDV=5,   HISTOGRAM=NONE
+      - 바인드 :B1=DATE '2026-04-01', :B2='SHIPPED', 카디널리티 약 1.2M
+      - 실행 계획: ORDERS TABLE ACCESS FULL → HASH JOIN, A-Time 58초
+    expected:
+      must_include_section:
+        - "[진단 요약]"
+        - "[가설]"
+        - "[튜닝 대안]"
+        - "[튜닝된 SQL — 권장안 기준]"
+        - "[DDL (필요 시)]"
+        - "[검증 방법]"
+      must_include_phrase:
+        - "CREATE INDEX"
+        - "ORDER_DATE"
+        - "STATUS"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+pass_criteria:
+  - all_must_request_satisfied
+  - all_must_include_section_present
+  - no_forbidden_phrases

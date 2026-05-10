@@ -1,0 +1,55 @@
+id: "006"
+title: "2-테이블 조인 — 데이터 편향 + 히스토그램 부재"
+intent: "STATUS 컬럼의 데이터 편향과 히스토그램 부재를 진단하고 히스토그램 추가를 권고하는지 검증"
+db_version: "19c"
+
+input_sql: |
+  SELECT e.employee_id, e.last_name, d.department_name
+  FROM   employees e, departments d
+  WHERE  e.department_id = d.department_id
+    AND  e.department_id = :B1;
+
+user_turns:
+  - turn: 1
+    message: |
+      위 SQL 튜닝해 주세요. 일부 부서에서만 매우 느립니다.
+    expected:
+      must_request:
+        - "EMPLOYEES"
+        - "DEPARTMENTS"
+        - "테이블 통계"
+        - "DEPARTMENT_ID"
+        - "히스토그램"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+  - turn: 2
+    message: |
+      [수집 결과]
+      - DB 버전: 19c
+      - EMPLOYEES NUM_ROWS=1,000,000, LAST_ANALYZED=5일 전
+      - DEPARTMENTS NUM_ROWS=50, LAST_ANALYZED=5일 전
+      - 인덱스: IDX_EMPLOYEES_DEPT(DEPARTMENT_ID), PK_DEPARTMENTS(DEPARTMENT_ID)
+      - DEPARTMENT_ID: NDV=50, HISTOGRAM=NONE, density=0.02
+      - 실측 분포: 50개 중 1개 부서가 60% (60만 행), 나머지 49개 균등(약 8천 행씩)
+      - 바인드 카디널리티: 작은 부서 800행, 큰 부서 60만 행
+      - 실행 계획: 모든 케이스에 INDEX RANGE SCAN + TABLE ACCESS BY ROWID, NESTED LOOPS
+    expected:
+      must_include_section:
+        - "[진단 요약]"
+        - "[가설]"
+        - "[튜닝 대안]"
+        - "[튜닝된 SQL — 권장안 기준]"
+        - "[검증 방법]"
+      must_include_phrase:
+        - "히스토그램"
+        - "GATHER_TABLE_STATS"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+pass_criteria:
+  - all_must_request_satisfied
+  - all_must_include_section_present
+  - no_forbidden_phrases

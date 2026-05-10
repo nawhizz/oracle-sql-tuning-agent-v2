@@ -1,0 +1,64 @@
+id: "001"
+title: "단일 테이블 단순 SELECT — 기본 정보 식별"
+intent: "단일 테이블 SELECT 에서 에이전트가 DB 버전·테이블 통계·인덱스·WHERE 컬럼 통계를 정확히 식별하는지 검증"
+db_version: "19c"
+
+input_sql: |
+  SELECT order_id, customer_id, order_date, status, total_amount
+  FROM   orders
+  WHERE  order_date >= :B1
+    AND  status      = :B2;
+
+user_turns:
+  - turn: 1
+    message: |
+      위 SQL 튜닝해 주세요.
+    expected:
+      must_request:
+        - "DB 버전"
+        - "ORDERS"
+        - "테이블 통계"
+        - "인덱스"
+        - "ORDER_DATE"
+        - "STATUS"
+      must_include_phrase:
+        - "복사"
+        - "SELECT"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+        - "보통은"
+        - "아마도"
+        - "대체로"
+
+  - turn: 2
+    message: |
+      [수집 결과]
+      - DB 버전: Oracle 19c
+      - ORDERS NUM_ROWS=1억, BLOCKS=1.2M, AVG_ROW_LEN=120, LAST_ANALYZED=5일 전
+      - 인덱스: PK_ORDERS(ORDER_ID), IDX_ORDERS_CUSTOMER(CUSTOMER_ID)
+      - ORDER_DATE: NDV=730, NULL=0%, HISTOGRAM=NONE, density=0.00137
+      - STATUS:     NDV=5,   NULL=0%, HISTOGRAM=NONE, density=0.2
+      - 바인드 :B1=DATE '2026-04-01', :B2='SHIPPED', 카디널리티 약 1.2M
+      - 실행 계획: TABLE ACCESS FULL, A-Rows=1.2M, A-Time=58초
+    expected:
+      must_include_section:
+        - "[진단 요약]"
+        - "[가설]"
+        - "[튜닝 대안]"
+        - "[튜닝된 SQL — 권장안 기준]"
+        - "[검증 방법]"
+      must_include_phrase:
+        - "FULL"
+        - "INDEX"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+        - "보통은"
+        - "아마도"
+        - "대체로"
+
+pass_criteria:
+  - all_must_request_satisfied
+  - all_must_include_section_present
+  - no_forbidden_phrases

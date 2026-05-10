@@ -1,0 +1,57 @@
+id: "008"
+title: "3-테이블 조인 + ORDER BY — 정렬 부하 + 페이지네이션"
+intent: "ORDER BY 정렬 부하 진단과 정렬 키 인덱스/커버링 인덱스 권고를 검증"
+db_version: "19c"
+
+input_sql: |
+  SELECT c.customer_name, o.order_id, o.order_date, p.product_name
+  FROM   customers c, orders o, products p, order_items oi
+  WHERE  c.customer_id = o.customer_id
+    AND  o.order_id    = oi.order_id
+    AND  oi.product_id = p.product_id
+    AND  c.region      = :B1
+  ORDER BY o.order_date DESC
+  FETCH FIRST 100 ROWS ONLY;
+
+user_turns:
+  - turn: 1
+    message: |
+      위 SQL 튜닝해 주세요. 페이지네이션 응답이 2초를 넘습니다.
+    expected:
+      must_request:
+        - "ORDERS"
+        - "CUSTOMERS"
+        - "ORDER_ITEMS"
+        - "PRODUCTS"
+        - "ORDER_DATE"
+        - "인덱스"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+  - turn: 2
+    message: |
+      [수집 결과]
+      - DB 버전: 19c
+      - 모든 테이블 통계 신선 (3일 이내)
+      - 인덱스: CUSTOMERS IDX_CUST_REGION(REGION); ORDERS PK + IDX_ORDERS_CUSTOMER(CUSTOMER_ID); ORDER_ITEMS PK(ORDER_ID, LINE_NO); PRODUCTS PK
+      - 실행 계획(GATHER_PLAN_STATISTICS): SORT ORDER BY 단계에 A-Time 1.6초, A-Rows 도중 12만 → 100
+      - REGION 카디널리티 약 60만 (8개 중 1)
+    expected:
+      must_include_section:
+        - "[진단 요약]"
+        - "[가설]"
+        - "[튜닝 대안]"
+        - "[튜닝된 SQL — 권장안 기준]"
+        - "[DDL (필요 시)]"
+        - "[검증 방법]"
+      must_include_phrase:
+        - "ORDER_DATE"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+pass_criteria:
+  - all_must_request_satisfied
+  - all_must_include_section_present
+  - no_forbidden_phrases

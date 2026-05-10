@@ -1,0 +1,55 @@
+id: "002"
+title: "단일 테이블 GROUP BY + ORDER BY — 정렬 키 처리"
+intent: "GROUP BY/ORDER BY 컬럼의 NDV·정렬 키 인덱스 존재 여부를 정보 식별에 추가로 요청하는지 검증"
+db_version: "19c"
+
+input_sql: |
+  SELECT customer_id, COUNT(*) AS cnt, SUM(total_amount) AS total
+  FROM   orders
+  WHERE  order_date >= :B1
+  GROUP BY customer_id
+  ORDER BY total DESC;
+
+user_turns:
+  - turn: 1
+    message: |
+      위 SQL 튜닝해 주세요.
+    expected:
+      must_request:
+        - "DB 버전"
+        - "ORDERS"
+        - "테이블 통계"
+        - "인덱스"
+        - "CUSTOMER_ID"
+        - "ORDER_DATE"
+      must_include_phrase:
+        - "복사"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+  - turn: 2
+    message: |
+      [수집 결과]
+      - DB 버전: 19c
+      - ORDERS NUM_ROWS=1억, LAST_ANALYZED=3일 전
+      - 인덱스: PK_ORDERS(ORDER_ID), IDX_ORDERS_CUSTOMER(CUSTOMER_ID)
+      - CUSTOMER_ID: NDV=80,000, HISTOGRAM=NONE
+      - ORDER_DATE:  NDV=730,    HISTOGRAM=NONE
+      - 실행 계획: TABLE ACCESS FULL → HASH GROUP BY → SORT ORDER BY, A-Time 84초
+    expected:
+      must_include_section:
+        - "[진단 요약]"
+        - "[가설]"
+        - "[튜닝 대안]"
+        - "[튜닝된 SQL — 권장안 기준]"
+        - "[검증 방법]"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+        - "아마도"
+
+pass_criteria:
+  - all_must_request_satisfied
+  - all_must_include_section_present
+  - no_forbidden_phrases

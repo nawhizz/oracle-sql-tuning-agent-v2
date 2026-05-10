@@ -1,0 +1,80 @@
+id: "011"
+title: "재요청 루프 — 일관성 검증 실패 + 재수집 (4턴)"
+intent: "USER_TABLES.NUM_ROWS 와 실행 계획의 Rows 추정치가 100배 괴리하는 상황에서 일관성 검증을 명시적으로 지적하고 재수집을 요청하는지 검증"
+db_version: "19c"
+
+input_sql: |
+  SELECT o.order_id, c.customer_name, o.total_amount
+  FROM   orders o, customers c
+  WHERE  o.customer_id = c.customer_id
+    AND  o.order_date >= :B1
+    AND  o.status      = :B2;
+
+user_turns:
+  - turn: 1
+    message: |
+      위 SQL 튜닝해 주세요.
+    expected:
+      must_request:
+        - "DB 버전"
+        - "ORDERS"
+        - "CUSTOMERS"
+        - "테이블 통계"
+        - "인덱스"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+  - turn: 2
+    message: |
+      [수집 결과]
+      - DB 버전: 19c
+      - ORDERS NUM_ROWS=1억 (USER_TABLES), LAST_ANALYZED=180일 전
+      - CUSTOMERS NUM_ROWS=500만, LAST_ANALYZED=180일 전
+      - 인덱스: ORDERS PK + IDX_ORDERS_DATE_STATUS(ORDER_DATE, STATUS)
+      - 실행 계획(EXPLAIN PLAN): ORDERS Rows 추정=2,000 (NUM_ROWS 대비 약 50,000배 작음)
+      - 실측: SELECT COUNT(*) FROM orders WHERE order_date >= :B1 AND status = :B2 결과 약 1.2M
+    expected:
+      must_include_section:
+        - "[수신 완료]"
+        - "[아직 필요]"
+        - "[재요청 수집 SQL]"
+      must_include_phrase:
+        - "괴리"
+        - "통계"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+  - turn: 3
+    message: |
+      통계가 6개월간 갱신되지 않아 그렇습니다. 재수집 후 다시 측정한 결과입니다.
+      - LAST_ANALYZED 갱신 (오늘)
+      - 실행 계획(GATHER_PLAN_STATISTICS): E-Rows 1.1M / A-Rows 1.2M (괴리 약 8% 이내)
+      - 컬럼 통계: ORDER_DATE NDV=820, STATUS NDV=5, 둘 다 HISTOGRAM=FREQUENCY 자동 생성
+      - 바인드 카디널리티: 1.2M
+    expected:
+      must_include_section:
+        - "[진단 요약]"
+        - "[가설]"
+        - "[튜닝 대안]"
+        - "[튜닝된 SQL — 권장안 기준]"
+        - "[검증 방법]"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+  - turn: 4
+    message: |
+      추가 질문: 권장안과 차선안의 차이를 한 번 더 정리해 주세요.
+    expected:
+      must_include_phrase:
+        - "권장"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+pass_criteria:
+  - inconsistency_called_out_turn2
+  - all_must_include_section_present_turn3
+  - no_forbidden_phrases

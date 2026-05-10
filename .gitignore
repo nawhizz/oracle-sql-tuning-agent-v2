@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+
+# 환경 변수
+.env
+.env.local
+
+# 테스트 결과 / 캐시 (정적 리포트는 예외로 추적)
+tests/results/*
+!tests/results/v*.md
+!tests/results/.gitkeep
+tests/.cache/
+
+# 빌드 산출물 (릴리즈 시 prompts/releases/ 로 별도 보존)
+prompts/build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Shrimp Task Manager 메타데이터 (로컬 작업 트래킹용)
+shrimp_data/

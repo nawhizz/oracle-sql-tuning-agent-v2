@@ -1,0 +1,62 @@
+id: "007"
+title: "3-테이블 조인 — ORDERS+CUSTOMERS+ORDER_ITEMS"
+intent: "3-테이블 조인에서 모든 조인 컬럼의 NDV 와 인덱스, 그리고 GATHER_PLAN_STATISTICS 실행 계획을 요청하는지 검증"
+db_version: "19c"
+
+input_sql: |
+  SELECT c.customer_name,
+         o.order_id,
+         oi.product_id,
+         oi.quantity
+  FROM   customers c,
+         orders    o,
+         order_items oi
+  WHERE  c.customer_id = o.customer_id
+    AND  o.order_id    = oi.order_id
+    AND  o.order_date >= :B1
+    AND  c.region      = :B2;
+
+user_turns:
+  - turn: 1
+    message: |
+      위 SQL 튜닝해 주세요.
+    expected:
+      must_request:
+        - "DB 버전"
+        - "ORDERS"
+        - "CUSTOMERS"
+        - "ORDER_ITEMS"
+        - "테이블 통계"
+        - "인덱스"
+        - "CUSTOMER_ID"
+        - "ORDER_ID"
+        - "GATHER_PLAN_STATISTICS"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+  - turn: 2
+    message: |
+      [수집 결과]
+      - DB 버전: 19c
+      - CUSTOMERS NUM_ROWS=500만, LAST_ANALYZED=2일 전. REGION NDV=8, HISTOGRAM=FREQUENCY
+      - ORDERS NUM_ROWS=1.2억, LAST_ANALYZED=2일 전
+      - ORDER_ITEMS NUM_ROWS=8억, LAST_ANALYZED=2일 전
+      - 인덱스: CUSTOMERS PK + IDX_CUST_REGION(REGION); ORDERS PK + IDX_ORDERS_CUSTOMER(CUSTOMER_ID); ORDER_ITEMS PK(ORDER_ID, LINE_NO)
+      - 실행 계획(GATHER_PLAN_STATISTICS): HASH JOIN x 2, A-Time 142초, A-Rows 4천만
+      - E-Rows 와 A-Rows 괴리 약 3배 이내
+    expected:
+      must_include_section:
+        - "[진단 요약]"
+        - "[가설]"
+        - "[튜닝 대안]"
+        - "[튜닝된 SQL — 권장안 기준]"
+        - "[검증 방법]"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+pass_criteria:
+  - all_must_request_satisfied
+  - all_must_include_section_present
+  - no_forbidden_phrases

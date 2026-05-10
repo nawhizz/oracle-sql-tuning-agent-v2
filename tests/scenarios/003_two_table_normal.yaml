@@ -1,0 +1,53 @@
+id: "003"
+title: "2-테이블 조인 — 정상 통계, 정상 계획"
+intent: "통계가 신선하고 계획이 합리적인 상황에서 에이전트가 과한 변경을 권고하지 않는지 검증"
+db_version: "19c"
+
+input_sql: |
+  SELECT o.order_id, c.customer_name, o.total_amount
+  FROM   orders o, customers c
+  WHERE  o.customer_id = c.customer_id
+    AND  o.order_date >= :B1;
+
+user_turns:
+  - turn: 1
+    message: |
+      위 SQL 튜닝해 주세요.
+    expected:
+      must_request:
+        - "DB 버전"
+        - "ORDERS"
+        - "CUSTOMERS"
+        - "테이블 통계"
+        - "인덱스"
+        - "CUSTOMER_ID"
+        - "ORDER_DATE"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+  - turn: 2
+    message: |
+      [수집 결과]
+      - DB 버전: 19c
+      - ORDERS NUM_ROWS=1.2억, LAST_ANALYZED=2일 전
+      - CUSTOMERS NUM_ROWS=500만, LAST_ANALYZED=2일 전
+      - 인덱스: ORDERS PK + IDX_ORDERS_DATE(ORDER_DATE), CUSTOMERS PK_CUSTOMERS(CUSTOMER_ID)
+      - 컬럼 통계: ORDER_DATE NDV=730 / CUSTOMER_ID(ORDERS) NDV=480,000 / CUSTOMER_ID(CUSTOMERS) NDV=500만
+      - 실행 계획: NESTED LOOPS, INDEX RANGE SCAN(IDX_ORDERS_DATE), INDEX UNIQUE SCAN(PK_CUSTOMERS), A-Time 4초, E-Rows ≈ A-Rows
+    expected:
+      must_include_section:
+        - "[진단 요약]"
+        - "[가설]"
+        - "[튜닝 대안]"
+        - "[튜닝된 SQL — 권장안 기준]"
+        - "[검증 방법]"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+        - "보통은"
+
+pass_criteria:
+  - all_must_request_satisfied
+  - all_must_include_section_present
+  - no_forbidden_phrases

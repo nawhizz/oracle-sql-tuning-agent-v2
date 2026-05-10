@@ -1,0 +1,83 @@
+id: "010"
+title: "재요청 루프 — V$ 권한 거부 + USER_*→ALL_* 대체 (4턴)"
+intent: "사용자가 V$ 권한 부족을 명시했을 때 ALL_* 대체 경로 안내, 그래도 불가하면 unavailable 마킹 후 부분 튜닝 + 한계 고지를 검증"
+db_version: "19c"
+
+input_sql: |
+  SELECT o.order_id, c.customer_name, o.total_amount
+  FROM   orders o, customers c
+  WHERE  o.customer_id = c.customer_id
+    AND  o.order_date >= :B1;
+
+user_turns:
+  - turn: 1
+    message: |
+      위 SQL 튜닝해 주세요. 운영망이라 V$ 뷰는 권한이 없습니다.
+    expected:
+      must_request:
+        - "DB 버전"
+        - "ORDERS"
+        - "CUSTOMERS"
+        - "테이블 통계"
+        - "인덱스"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+  - turn: 2
+    message: |
+      V$VERSION 도 권한이 거부됩니다. ORDERS USER_TABLES 도 SELECT 권한 부족입니다. ALL_* 는 시도해보겠습니다.
+    expected:
+      must_include_section:
+        - "[수신 완료]"
+        - "[아직 필요]"
+        - "[재요청 수집 SQL]"
+      must_include_phrase:
+        - "ALL_TABLES"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+  - turn: 3
+    message: |
+      ALL_TABLES, ALL_TAB_STATISTICS, ALL_INDEXES 는 조회됩니다.
+      - DB 버전 (관리자에게 물어봐서): Oracle 19c
+      - ALL_TAB_STATISTICS: ORDERS NUM_ROWS=1억(LAST_ANALYZED 7일 전), CUSTOMERS NUM_ROWS=500만(LAST_ANALYZED 7일 전)
+      - ALL_INDEXES: ORDERS PK_ORDERS(ORDER_ID), IDX_ORDERS_CUSTOMER(CUSTOMER_ID), CUSTOMERS PK_CUSTOMERS(CUSTOMER_ID)
+      - 실행 계획은 SQL Developer Autotrace 로만 가능했고 EXPLAIN PLAN 결과만 첨부합니다 (E-Rows 만, A-Rows 없음).
+      - V$SQL_BIND_CAPTURE 는 권한 부족.
+    expected:
+      must_include_section:
+        - "[수신 완료]"
+        - "[아직 필요]"
+      must_include_phrase:
+        - "한계"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+  - turn: 4
+    message: |
+      더 이상 권한 확보가 어렵습니다. 가능한 범위에서 튜닝안 부탁드립니다.
+      - 컬럼 통계는 ALL_TAB_COL_STATISTICS 로 받을 수 있습니다.
+      - ORDER_DATE NDV=730, NULL=0%, HISTOGRAM=NONE
+      - CUSTOMER_ID(ORDERS) NDV=480,000
+    expected:
+      must_include_section:
+        - "[진단 요약]"
+        - "[가설]"
+        - "[튜닝 대안]"
+        - "[튜닝된 SQL — 권장안 기준]"
+        - "[검증 방법]"
+      must_include_phrase:
+        - "한계"
+      forbidden_phrases:
+        - "경험상"
+        - "일반적으로"
+
+pass_criteria:
+  - permission_alternative_offered
+  - loop_sections_present_each_turn
+  - limitation_disclosed_in_final_turn
+  - all_must_include_section_present_final_turn
+  - no_forbidden_phrases
