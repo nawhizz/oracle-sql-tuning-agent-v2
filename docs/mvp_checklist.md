@@ -52,12 +52,12 @@
 - [x] `docs/beta_rollout_plan.md` — 모집 5~10명, 피드백 양식 7항, 5개 지표, GO/CONDITIONAL/NO 의사결정
 
 ## 8. 동기화 직전 점검
-- [ ] `git init`(없는 경우) 후 모든 파일 첫 커밋. 커밋 메시지: `docs: MVP v0.1.0 초기 산출물 [SYNC-REQUIRED]`
-- [ ] `git tag -a v0.1.0 -m "v0.1.0: 초기 시스템 프롬프트 + Knowledge 4종 + 시나리오 11건 + 자동 평가 파이프라인"`
-- [ ] `python scripts/build_system_prompt.py` 재실행 후 토큰 근사치 확인 (현재 ~8,070 토큰)
-- [ ] `prompts/build/system.txt` 복사 → Claude.ai Project Custom Instructions 붙여넣기
-- [ ] `knowledge/*.md` 4종 → Claude.ai Project Knowledge 업로드
-- [ ] `docs/sync_log.md` 에 항목 추가
+- [x] `git init`(없는 경우) 후 모든 파일 첫 커밋. 커밋 메시지: `docs: MVP v0.1.0 초기 산출물 [SYNC-REQUIRED]` (커밋 `fd01f9f`)
+- [x] `git tag -a v0.1.0 -m "v0.1.0: 초기 시스템 프롬프트 + Knowledge 4종 + 시나리오 11건 + 자동 평가 파이프라인"`
+- [x] `python scripts/build_system_prompt.py` 재실행 후 토큰 근사치 확인 (현재 ~8,070 토큰, git fd01f9f)
+- [x] `prompts/build/system.txt` 복사 → Claude.ai Project Custom Instructions 붙여넣기
+- [x] `knowledge/*.md` 4종 → Claude.ai Project Knowledge 업로드
+- [x] `docs/sync_log.md` 에 항목 추가 (2026-05-10 20:35)
 - [ ] (선택) `python tests/run_tests.py --cache` 로 11건 일괄 회귀 검증, 결과를 `tests/results/` 보관
 - [ ] 베타 운용 시작 (안내 메일 + 온보딩 세션)
 

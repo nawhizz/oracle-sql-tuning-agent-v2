@@ -4,7 +4,7 @@
 
 | 일시 | Git 해시 | 태그 | 변경 요약 | 담당 |
 |------|----------|------|-----------|------|
-| _v0.1.0 동기화 예정_ | _동기화 시점 git rev-parse --short HEAD_ | v0.1.0 (예정) | 초기 시스템 프롬프트 5종 + Knowledge 4종 + 시나리오 11건 + 자동 평가 파이프라인 (T01~T11 완료) | nawhizz |
+| 2026-05-10 20:35 | fd01f9f | v0.1.0 | 초기 시스템 프롬프트 5종(role/state_machine/info_requirements/validation_rules/output_format @ v0.1.0) + Knowledge 4종(collection_sqls/hints_reference/dictionary_views/tuning_cases) Claude.ai Project 1차 동기화 | nawhizz |
 
 ## 사용 규칙
 
